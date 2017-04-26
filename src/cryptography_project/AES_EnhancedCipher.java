@@ -3,7 +3,6 @@ package cryptography_project;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;
-import org.apache.commons.codec.binary.Hex;
 
 /*
 Author: Joshua Insel
@@ -14,13 +13,13 @@ Source: "Enhancing AES using Novel Block Key Generation Algorithm and Key Depend
 
 public class AES_EnhancedCipher {
     private AES_Key key; //Key
-    final private SHA_256 sha256 = new SHA_256();
+    final private SHA_256 sha256 = new SHA_256(); //Secure Hash Algorithm-256
     final private int nB = 4; //# of 32-bit words in 128-bit block
     final private int nK = 4; //# of 32-bit words in key
     final private int nR = 10; //# of 32-bit round keys
     private byte[][] blockKeys; //Block keys
     private byte[][] roundKeys; //Round keys
-    private byte[] sBox = new byte[256]; //Substitution box
+    private final byte[] sBox = new byte[256]; //Substitution box
     final private int[] rCon = {0x01, 0x02, 0x04, 0x08, 0x10, 
         0x20, 0x40, 0x80, 0x1b, 0x36}; //Round constant
     
@@ -49,7 +48,7 @@ public class AES_EnhancedCipher {
     }
     
     
-    private void blockKeyGen(int blocks) {
+    private void blockKeyGen(int blocks) { //Block key generation algorithm
         blockKeys = new byte[blocks][16];
         byte[] keyData = key.getKey();
         byte[] blockKey = new byte[16];
@@ -72,14 +71,14 @@ public class AES_EnhancedCipher {
                 rotatedLeftHalf[j] = leftHalf[(j + 4) % 4];
                 nibbleSwappedRightHalf[j] = (byte)(((rightHalf[j] & 0x0f) << 4) | ((rightHalf[j] & 0xf0) >>> 4));
             }
-            leftHalf = nibbleSwappedRightHalf;
-            rightHalf = new byte[8];
+            byte[] permutedLeftHalf = nibbleSwappedRightHalf;
+            byte[] permutedRightHalf = new byte[8];
             for (int j = 0; j < 8; j++) {
-                rightHalf[j] = (byte)(rotatedLeftHalf[j] ^ nibbleSwappedRightHalf[j]);
+                permutedRightHalf[j] = (byte)(rotatedLeftHalf[j] ^ nibbleSwappedRightHalf[j]);
             }
             byte[] permutedKey = new byte[16];
-            System.arraycopy(leftHalf, 0, permutedKey, 0, 8);
-            System.arraycopy(rightHalf, 0, permutedKey, 8, 8);
+            System.arraycopy(permutedLeftHalf, 0, permutedKey, 0, 8);
+            System.arraycopy(permutedRightHalf, 0, permutedKey, 8, 8);
             //XOR of original key and output of permutation function
             byte[] xorKey = new byte[16];
             for (int j = 0; j < 16; j++) {
@@ -98,7 +97,7 @@ public class AES_EnhancedCipher {
         }
     }
     
-    private int unsignedInt(int num) {
+    private int unsignedInt(int num) { //Converts integers to unsigned representation
         if (num >= 0) {
             return num;
         }
@@ -124,7 +123,7 @@ public class AES_EnhancedCipher {
         return output;
     }
     
-    private void keyExpansion(byte[] blockKey) {
+    private void keyExpansion(byte[] blockKey) { //Expands key to AES round keys
         roundKeys = new byte[nB*(nR+1)][4];
         byte[] temp = new byte[4];
         int i;
@@ -152,7 +151,7 @@ public class AES_EnhancedCipher {
         }
     }
     
-    private byte[][] block2State(byte[] block) {
+    private byte[][] block2State(byte[] block) { //Converts 128-bit block to state
         byte[][] state = new byte[4][4];
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < nB; j++) {
@@ -162,7 +161,7 @@ public class AES_EnhancedCipher {
         return state;
     }
     
-    private byte[] state2Block(byte[][] state) {
+    private byte[] state2Block(byte[][] state) { //Converts state to 128-bit block
         byte[] block = new byte[16];
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < nB; j++) {
@@ -171,6 +170,8 @@ public class AES_EnhancedCipher {
         }
         return block;
     }
+    
+    //Enhanced AES transformations
     
     private byte[][] addRoundKey(byte[][] state, int round) {
         byte[][] output = new byte[4][4];
@@ -246,7 +247,7 @@ public class AES_EnhancedCipher {
     
 
     
-    private byte[] cipher(byte[] inputBlock) {
+    private byte[] cipher(byte[] inputBlock) { //Enhanced AES cipher
         byte[][] state = block2State(inputBlock);
         state = addRoundKey(state, 0);
         for (int round = 1; round < nR; round++) {
@@ -262,67 +263,71 @@ public class AES_EnhancedCipher {
         return cipherTextBlock;
     }
     
-    private byte[] padding(byte[] data) { //PKCS #7 Padding
+    private byte[] padding(byte[] plainText) { //PKCS #7 Padding
         ByteBuffer buffer;
         int paddedLength;
-        if (data.length % 16 > 0) {
-            paddedLength = 16*(data.length/16 + 1);
+        if (plainText.length % 16 > 0) {
+            paddedLength = 16*(plainText.length/16 + 1);
             buffer = ByteBuffer.allocate(paddedLength);
-            buffer.put(data);
-            for (int i = 0; i < paddedLength - data.length; i++) {
-                buffer.put((byte)(paddedLength - data.length));
+            buffer.put(plainText);
+            for (int i = 0; i < paddedLength - plainText.length; i++) {
+                buffer.put((byte)(paddedLength - plainText.length));
             }
         }
         else {
-            paddedLength = 16*(data.length/16 + 2);
+            paddedLength = 16*(plainText.length/16 + 2);
             buffer = ByteBuffer.allocate(paddedLength);
-            buffer.put(data);
-            for (int i = 0; i < paddedLength - data.length; i++) {
-                buffer.put((byte)(paddedLength - data.length));
+            buffer.put(plainText);
+            for (int i = 0; i < paddedLength - plainText.length; i++) {
+                buffer.put((byte)(paddedLength - plainText.length));
             }
         }
         return buffer.array();
     }
     
-    public byte[] encryptECB(byte[] data, AES_Key key) { //Electronic Cookbook mode
-        data = padding(data);
-        setKey(key, data.length/16);
-        ByteBuffer buffer = ByteBuffer.allocate(data.length);
-        byte[] block = new byte[16];
-        for (int i = 0; i < data.length; i += 16) {
+    //Block Cipher Modes of Operation
+    //Source: NIST Special Publication 800-38A
+    
+    public byte[] encryptECB(byte[] plainText, AES_Key key) { //Electronic Cookbook mode
+        plainText = padding(plainText);
+        setKey(key, plainText.length/16);
+        ByteBuffer buffer = ByteBuffer.allocate(plainText.length);
+        byte[] plainTextBlock = new byte[16];
+        for (int i = 0; i < plainText.length; i += 16) {
             keyExpansion(blockKeys[i/16]);
-            System.arraycopy(data, i, block, 0, 16);
-            buffer.put(cipher(block));
+            System.arraycopy(plainText, i, plainTextBlock, 0, 16);
+            buffer.put(cipher(plainTextBlock));
         }
         byte[] cipherText = buffer.array();
         return cipherText;
     }
     
-    public byte[] encryptCBC(byte[] data, AES_Key key) { //Cipher Block Chaining mode
-        data = padding(data);
-        setKey(key, data.length/16);
+    public byte[] encryptCBC(byte[] plainText, AES_Key key) { //Cipher Block Chaining mode
+        plainText = padding(plainText);
+        setKey(key, plainText.length/16);
         SecureRandom random = new SecureRandom(); //Cryptographically-secure pseudorandom number generator
-        ByteBuffer buffer = ByteBuffer.allocate(data.length + 16);
+        ByteBuffer buffer = ByteBuffer.allocate(plainText.length + 16);
         byte[] iv = new byte[16]; //Initialization vector
         random.nextBytes(iv);
         buffer.put(iv);
-        byte[] dataBlock = new byte[16];
+        byte[] plainTextBlock = new byte[16];
+        byte[] xorBlock = new byte[16];
         byte[] cipherTextBlock = new byte[16];
-        for (int i = 0; i < data.length; i += 16) {
+        for (int i = 0; i < plainText.length; i += 16) {
             keyExpansion(blockKeys[i/16]);
-            System.arraycopy(data, i, dataBlock, 0, 16);
+            System.arraycopy(plainText, i, plainTextBlock, 0, 16);
             if (i == 0) {
                 for (int j = 0; j < 16; j++) {
-                    cipherTextBlock[j] = (byte)(dataBlock[j] ^ iv[j]);
+                    xorBlock[j] = (byte)(plainTextBlock[j] ^ iv[j]);
                 }
-                cipherTextBlock = cipher(cipherTextBlock);
+                cipherTextBlock = cipher(xorBlock);
                 buffer.put(cipherTextBlock);
             }
             else {
                 for (int j = 0; j < 16; j++) {
-                    cipherTextBlock[j] = (byte)(dataBlock[j] ^ cipherTextBlock[j]);
+                    xorBlock[j] = (byte)(plainTextBlock[j] ^ cipherTextBlock[j]);
                 }
-                cipherTextBlock = cipher(cipherTextBlock);
+                cipherTextBlock = cipher(xorBlock);
                 buffer.put(cipherTextBlock);
             }
         }
@@ -330,40 +335,38 @@ public class AES_EnhancedCipher {
         return cipherText;
     }
     
-    public byte[] encryptCFB(byte[] data, AES_Key key) { //Cipher Feedback mode
-        setKey(key, data.length/16 + 1);
-        SecureRandom random = new SecureRandom();
-        ByteBuffer buffer = ByteBuffer.allocate(data.length + 16);
-        byte[] iv = new byte[16];
+    public byte[] encryptCFB(byte[] plainText, AES_Key key) { //Cipher Feedback mode
+        setKey(key, plainText.length/16 + 1);
+        SecureRandom random = new SecureRandom(); //Cryptographically-secure pseudorandom number generator
+        ByteBuffer buffer = ByteBuffer.allocate(plainText.length + 16);
+        byte[] iv = new byte[16]; //Initialization vector
         random.nextBytes(iv);
         buffer.put(iv);
-        byte[] input;
         byte[] output;
-        byte[] dataBlock = new byte[16];
+        byte[] plainTextBlock = new byte[16];
         byte[] cipherTextBlock = new byte[16];
-        for (int i = 0; i < data.length; i += 16) {
+        for (int i = 0; i < plainText.length; i += 16) {
             keyExpansion(blockKeys[i/16]);
             if (i == 0) {
-                input = iv;
+                output = cipher(iv);
             }
             else {
-                input = cipherTextBlock;
+                output = cipher(cipherTextBlock);
             }
-            output = cipher(input);
-            if (data.length - i < 16) {
-                int blockLength = data.length % 16;
-                dataBlock = new byte[blockLength];
+            if (plainText.length - i < 16) {
+                int blockLength = plainText.length % 16;
+                plainTextBlock = new byte[blockLength];
                 cipherTextBlock = new byte[blockLength];
-                System.arraycopy(data, i, dataBlock, 0, blockLength);
+                System.arraycopy(plainText, i, plainTextBlock, 0, blockLength);
                 for (int j = 0; j < blockLength; j++) {
-                    cipherTextBlock[j] = (byte)(dataBlock[j] ^ output[j]);
+                    cipherTextBlock[j] = (byte)(plainTextBlock[j] ^ output[j]);
                 }
                 buffer.put(cipherTextBlock);
             }
             else {
-                System.arraycopy(data, i, dataBlock, 0, 16);
+                System.arraycopy(plainText, i, plainTextBlock, 0, 16);
                 for (int j = 0; j < 16; j++) {
-                    cipherTextBlock[j] = (byte)(dataBlock[j] ^ output[j]);
+                    cipherTextBlock[j] = (byte)(plainTextBlock[j] ^ output[j]);
                 }
                 buffer.put(cipherTextBlock);
             }
@@ -375,77 +378,73 @@ public class AES_EnhancedCipher {
     public byte[] decryptCFB(byte[] cipherText, AES_Key key) {
         setKey(key, cipherText.length/16);
         ByteBuffer buffer = ByteBuffer.allocate(cipherText.length - 16);
-        byte[] iv = new byte[16];
-        byte[] input;
+        byte[] iv = new byte[16]; //Initialization vector
         byte[] output;
         byte[] cipherTextBlock = new byte[16];
-        byte[] dataBlock = new byte[16];
+        byte[] plainTextBlock = new byte[16];
         System.arraycopy(cipherText, 0, iv, 0, 16);
         for (int i = 16; i < cipherText.length; i += 16) {
             keyExpansion(blockKeys[i/16 - 1]);
             if (i == 16) {
-                input = iv;
+                output = cipher(iv);
             }
             else {
-                input = cipherTextBlock;
+                output = cipher(cipherTextBlock);
             }
-            output = cipher(input);
             if (cipherText.length - i < 16) {
                 int blockLength = cipherText.length % 16;
                 cipherTextBlock = new byte[blockLength];
-                dataBlock = new byte[blockLength];
+                plainTextBlock = new byte[blockLength];
                 System.arraycopy(cipherText, i, cipherTextBlock, 0, blockLength);
                 for (int j = 0; j < blockLength; j++) {
-                    dataBlock[j] = (byte)(cipherTextBlock[j] ^ output[j]);
+                    plainTextBlock[j] = (byte)(cipherTextBlock[j] ^ output[j]);
                 }
-                buffer.put(dataBlock);
+                buffer.put(plainTextBlock);
             }
             else {
                 System.arraycopy(cipherText, i, cipherTextBlock, 0, 16);
                 for (int j = 0; j < 16; j++) {
-                    dataBlock[j] = (byte)(cipherTextBlock[j] ^ output[j]);
+                    plainTextBlock[j] = (byte)(cipherTextBlock[j] ^ output[j]);
                 }
-                buffer.put(dataBlock);
+                buffer.put(plainTextBlock);
             }
         }
-        byte[] data = buffer.array();
-        return data;
+        byte[] plainText = buffer.array();
+        return plainText;
     }
     
-    public byte[] encryptOFB(byte[] data, AES_Key key) { //Output Feedback mode
-        setKey(key, data.length/16 + 1);
-        SecureRandom random = new SecureRandom();
-        ByteBuffer buffer = ByteBuffer.allocate(data.length + 16);
-        byte[] iv = new byte[16];
+    public byte[] encryptOFB(byte[] plainText, AES_Key key) { //Output Feedback mode
+        setKey(key, plainText.length/16 + 1);
+        SecureRandom random = new SecureRandom(); //Cryptographically-secure pseudorandom number generator
+        ByteBuffer buffer = ByteBuffer.allocate(plainText.length + 16);
+        byte[] iv = new byte[16]; //Initialization vector
         random.nextBytes(iv);
         buffer.put(iv);
-        byte[] input;
-        byte[] output = new byte[16];
+        byte[] output;
         byte[] cipherTextBlock = new byte[16];
-        byte[] dataBlock = new byte[16];
-        for (int i = 0; i < data.length; i += 16) {
+        byte[] plainTextBlock = new byte[16];
+        for (int i = 0; i < plainText.length; i += 16) {
             keyExpansion(blockKeys[i/16]);
             if (i == 0) {
-                input = iv;
+                output = cipher(iv);
             }
             else {
-                input = output;
+                output = cipher(cipherTextBlock);
             }
-            output = cipher(input);
-            if (data.length - i < 16) {
-                int blockLength = data.length % 16;
-                dataBlock = new byte[blockLength];
+            if (plainText.length - i < 16) {
+                int blockLength = plainText.length % 16;
+                plainTextBlock = new byte[blockLength];
                 cipherTextBlock = new byte[blockLength];
-                System.arraycopy(data, i, dataBlock, 0, blockLength);
+                System.arraycopy(plainText, i, plainTextBlock, 0, blockLength);
                 for (int j = 0; j < blockLength; j++) {
-                    cipherTextBlock[j] = (byte)(dataBlock[j] ^ output[j]);
+                    cipherTextBlock[j] = (byte)(plainTextBlock[j] ^ output[j]);
                 }
                 buffer.put(cipherTextBlock);
             }
             else {
-                System.arraycopy(data, i, dataBlock, 0, 16);
+                System.arraycopy(plainText, i, plainTextBlock, 0, 16);
                 for (int j = 0; j < 16; j++) {
-                    cipherTextBlock[j] = (byte)(dataBlock[j] ^ output[j]);
+                    cipherTextBlock[j] = (byte)(plainTextBlock[j] ^ output[j]);
                 }
                 buffer.put(cipherTextBlock);
             }
@@ -457,40 +456,38 @@ public class AES_EnhancedCipher {
     public byte[] decryptOFB(byte[] cipherText, AES_Key key) {
         setKey(key, cipherText.length/16);
         ByteBuffer buffer = ByteBuffer.allocate(cipherText.length - 16);
-        byte[] iv = new byte[16];
-        byte[] input;
-        byte[] output = new byte[16];
+        byte[] iv = new byte[16]; //Initialization vector
+        byte[] output;
         byte[] cipherTextBlock = new byte[16];
-        byte[] dataBlock = new byte[16];
+        byte[] plainTextBlock = new byte[16];
         System.arraycopy(cipherText, 0, iv, 0, 16);
         for (int i = 16; i < cipherText.length; i += 16) {
             keyExpansion(blockKeys[i/16 - 1]);
             if (i == 16) {
-                input = iv;
+                output = cipher(iv);
             }
             else {
-                input = output;
+                output = cipher(cipherTextBlock);
             }
-            output = cipher(input);
             if (cipherText.length - i < 16) {
                 int blockLength = cipherText.length % 16;
                 cipherTextBlock = new byte[blockLength];
-                dataBlock = new byte[blockLength];
+                plainTextBlock = new byte[blockLength];
                 System.arraycopy(cipherText, i, cipherTextBlock, 0, blockLength);
                 for (int j = 0; j < blockLength; j++) {
-                    dataBlock[j] = (byte)(cipherTextBlock[j] ^ output[j]);
+                    plainTextBlock[j] = (byte)(cipherTextBlock[j] ^ output[j]);
                 }
-                buffer.put(dataBlock);
+                buffer.put(plainTextBlock);
             }
             else {
                 System.arraycopy(cipherText, i, cipherTextBlock, 0, 16);
                 for (int j = 0; j < 16; j++) {
-                    dataBlock[j] = (byte)(cipherTextBlock[j] ^ output[j]);
+                    plainTextBlock[j] = (byte)(cipherTextBlock[j] ^ output[j]);
                 }
-                buffer.put(dataBlock);
+                buffer.put(plainTextBlock);
             }
         }
-        byte[] data = buffer.array();
-        return data;
+        byte[] plainText = buffer.array();
+        return plainText;
     }
 }

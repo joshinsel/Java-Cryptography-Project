@@ -1,19 +1,19 @@
 package cryptography_project;
 
-//Author: Joshua Insel
-
-//RSA Key Generator
-//Generates public and private keys for RSA
-
 import java.math.BigInteger;
 import java.security.InvalidKeyException;
 import java.security.SecureRandom;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
+/*
+Author: Joshua Insel
+
+RSA Key Generator in Java- Generates RSA public and private keys
+Source: PKCS #1 v2.2
+*/
 
 public class RSA_KeyGenerator {
     
-    private SecureRandom random = new SecureRandom(); //Cryptographically-secure random number generator
+    final private SecureRandom random = new SecureRandom(); //Cryptographically-secure random number generator
     private BigInteger p; //First random prime number
     private BigInteger q; //Second random prime number
     private BigInteger lcm; //Least common multiple of (p-1) and (q-1)

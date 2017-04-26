@@ -4,7 +4,13 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.util.Arrays;
-import org.apache.commons.codec.binary.Hex;
+
+/*
+Author: Joshua Insel
+
+RSA and RSA-OAEP (Optimal Asymmetric Encryption Padding) in Java
+Source: PKCS #1 v2.2
+*/
 
 public class RSA_Cipher {
    private final SHA_256 sha256 = new SHA_256();
@@ -12,8 +18,8 @@ public class RSA_Cipher {
    
    public RSA_Cipher(){}
    
-   public byte[] encrypt(byte[] data, RSA_PublicKey publicKey) {
-       BigInteger message = new BigInteger(data);
+   public byte[] encrypt(byte[] plainText, RSA_PublicKey publicKey) { //RSA encryption
+       BigInteger message = new BigInteger(plainText);
        BigInteger n = publicKey.getModulus(); //RSA Modulus
        BigInteger e = publicKey.getPublicExponent(); //RSA Public Exponent
        if (message.compareTo(n) >= 0) {
@@ -23,21 +29,18 @@ public class RSA_Cipher {
        return cipherText;
    }
    
-   public byte[] decrypt(byte[] data, RSA_PrivateKey privateKey) {
-       BigInteger cipherText = new BigInteger(data);
+   public byte[] decrypt(byte[] cipherText, RSA_PrivateKey privateKey) { //RSA decryption
+       BigInteger message = new BigInteger(cipherText);
        BigInteger n = privateKey.getModulus(); //RSA Modulus
        BigInteger d = privateKey.getPrivateExponent(); //RSA Private Exponent
-       if (cipherText.compareTo(n) >= 0) {
+       if (message.compareTo(n) >= 0) {
            throw new InvalidDataException();
        }
-       if (cipherText.compareTo(n.subtract(BigInteger.ONE)) == 1) {
-           throw new InvalidDataException();
-       }
-       byte[] message = cipherText.modPow(d, n).toByteArray(); //Decryption
-       return message;
+       byte[] plainText = message.modPow(d, n).toByteArray(); //Decryption
+       return plainText;
    }
    
-   private byte[] mgf(byte[] mgfSeed, int maskLen) { //Mask generation function
+   private byte[] mgf(byte[] mgfSeed, int maskLen) { //Mask generation function 
        byte[] t;
        ByteBuffer buffer1;
        ByteBuffer buffer2 = ByteBuffer.allocate(hLen * ((maskLen - 1)/hLen + 1));
@@ -53,24 +56,24 @@ public class RSA_Cipher {
        return mask;
    }
    
-   public byte[] encryptOAEP(byte[] data, byte[] label, RSA_PublicKey publicKey) {
-       int k;
+   public byte[] encryptOAEP(byte[] plainText, byte[] label, RSA_PublicKey publicKey) { //RSA-OAEP encryption
+       int k; //Length of modulus in bytes
        if (publicKey.getModulus().bitLength() % 8 > 0) {
            k = publicKey.getModulus().bitLength()/8 + 1;
        }
        else {
            k = publicKey.getModulus().bitLength()/8;
        }
-       if (data.length > k - 2*hLen - 2) {
+       if (plainText.length > k - 2*hLen - 2) {
            throw new InvalidDataException();
        }
        byte[] lHash = sha256.digest(label);
-       byte[] ps = new byte[k - data.length - 2*hLen - 2];
+       byte[] ps = new byte[k - plainText.length - 2*hLen - 2];
        ByteBuffer buffer = ByteBuffer.allocate(k - hLen - 1);
        buffer.put(lHash);
        buffer.put(ps);
        buffer.put((byte)1);
-       buffer.put(data);
+       buffer.put(plainText);
        byte[] db = buffer.array();
        SecureRandom random = new SecureRandom();
        byte[] seed = new byte[hLen];
@@ -94,18 +97,18 @@ public class RSA_Cipher {
        return cipherText;
    }
    
-   public byte[] decryptOAEP(byte[] data, byte[] label, RSA_PrivateKey privateKey) {
-       int k;
+   public byte[] decryptOAEP(byte[] cipherText, byte[] label, RSA_PrivateKey privateKey) { //RSA-OAEP decryption
+       int k; //Length of modulus in bytes
        if (privateKey.getModulus().bitLength() % 8 > 0) {
            k = privateKey.getModulus().bitLength()/8 + 1;
        }
        else {
            k = privateKey.getModulus().bitLength()/8;
        }
-       if (data.length < k || data.length > k + 1 || k < 2*hLen + 2) {
+       if (cipherText.length < k || cipherText.length > k + 1 || k < 2*hLen + 2) {
            throw new InvalidDataException();
        }
-       byte[] em = decrypt(data, privateKey);
+       byte[] em = decrypt(cipherText, privateKey);
        byte[] lHash = sha256.digest(label);
        byte[] maskedSeed = new byte[hLen];
        byte[] maskedDB = new byte[k - hLen - 1];
@@ -151,8 +154,8 @@ public class RSA_Cipher {
            default:
                throw new IllegalArgumentException();
        }
-       byte[] message = new byte[db.length - mIndex];
-       System.arraycopy(db, mIndex, message, 0, message.length);
-       return message;
+       byte[] plainText = new byte[db.length - mIndex];
+       System.arraycopy(db, mIndex, plainText, 0, plainText.length);
+       return plainText;
    }
 }

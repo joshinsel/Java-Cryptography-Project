@@ -6,24 +6,28 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import org.apache.commons.codec.binary.Hex;
+
+/*
+Author: Joshua Insel
+
+Enhanced Advanced Encryption Standard (AES) Cipher in Java
+Source: "Enhancing AES using Novel Block Key Generation Algorithm and Key Dependent S-boxes" by Harpreet Singh and Paramvir Singh
+*/
 
 public class AES_EnhancedInvCipher {
     private AES_Key key; //Key
-    final private SHA_256 sha256 = new SHA_256();
-    final private int nB = 4; //# of 32-bit words in 128-bit block
-    final private int nK = 4; //# of 32-bit words in key
-    final private int nR = 10; //# of 32-bit round keys
+    private final SHA_256 sha256 = new SHA_256();
+    private final int nB = 4; //# of 32-bit words in 128-bit block
+    private final int nK = 4; //# of 32-bit words in key
+    private final int nR = 10; //# of 32-bit round keys
     private byte[][] blockKeys; //Block keys
     private byte[][] roundKeys; //Round keys
-    private byte[] sBox = new byte[256]; //Substitution box
-    private byte[] invSBox = new byte[256]; //Inverse substitution box
+    private final byte[] sBox = new byte[256]; //Substitution box
     final private int[] rCon = {0x01, 0x02, 0x04, 0x08, 0x10, 
         0x20, 0x40, 0x80, 0x1b, 0x36}; //Round constant
     
     public AES_EnhancedInvCipher() {
         initSBox();
-        initInvSBox();
     }
     
     private void setKey(AES_Key inputKey, int blocks) {
@@ -45,23 +49,8 @@ public class AES_EnhancedInvCipher {
         } 
         catch (FileNotFoundException ex) {}
     }
-     
-    private void initInvSBox() { //Initialize substitution box
-        try {
-            BufferedReader reader = new BufferedReader(new FileReader(new File("invSBox.txt")));
-            String line;
-            for (int i = 0; i < 256; i++) {
-                try {
-                    line = reader.readLine();
-                    invSBox[i] = (byte) Integer.parseInt(line, 16);
-                } 
-                catch (IOException ex) {}
-            }
-        } 
-        catch (FileNotFoundException ex) {}
-    }
     
-    private void blockKeyGen(int blocks) {
+    private void blockKeyGen(int blocks) { //Block key generation algorithm
         blockKeys = new byte[blocks][16];
         byte[] keyData = key.getKey();
         byte[] blockKey = new byte[16];
@@ -110,7 +99,7 @@ public class AES_EnhancedInvCipher {
         }
     }
     
-    private int unsignedInt(int num) {
+    private int unsignedInt(int num) { //Converts integers to unsigned representation
         if (num >= 0) {
             return num;
         }
@@ -119,7 +108,7 @@ public class AES_EnhancedInvCipher {
         }
     }
     
-    private int signedInt(int num) {
+    private int signedInt(int num) { //Converts unsigned integers to signed representation
         if (num < 128) {
             return num;
         }
@@ -145,7 +134,7 @@ public class AES_EnhancedInvCipher {
         return output;
     }
     
-    private void keyExpansion(byte[] blockKey) {
+    private void keyExpansion(byte[] blockKey) { //Expands key to AES round keys
         roundKeys = new byte[nB*(nR+1)][4];
         byte[] temp = new byte[4];
         int i;
@@ -173,7 +162,7 @@ public class AES_EnhancedInvCipher {
         }
     }
     
-    private byte[][] block2State(byte[] block) {
+    private byte[][] block2State(byte[] block) { //Converts 128-bit block to state
         byte[][] state = new byte[4][4];
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < nB; j++) {
@@ -183,7 +172,7 @@ public class AES_EnhancedInvCipher {
         return state;
     }
     
-    private byte[] state2Block(byte[][] state) {
+    private byte[] state2Block(byte[][] state) { //Converts state to 128-bit block
         byte[] block = new byte[16];
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < nB; j++) {
@@ -192,6 +181,8 @@ public class AES_EnhancedInvCipher {
         }
         return block;
     }
+    
+    //Enhanced AES transformations
     
     private byte[][] addRoundKey(byte[][] state, int round) {
         byte[][] output = new byte[4][4];
@@ -265,7 +256,7 @@ public class AES_EnhancedInvCipher {
         return output;
     }
     
-    private byte[] invCipher (byte[] cipherTextBlock) {
+    private byte[] invCipher (byte[] cipherTextBlock) { //Enhanced AES inverse cipher
         byte[][] state = block2State(cipherTextBlock);
         state = addRoundKey(state, nR);
         state = invShiftRows(state);
@@ -281,7 +272,10 @@ public class AES_EnhancedInvCipher {
         return block;
     }
     
-    public byte[] decryptECB(byte[] cipherText, AES_Key key) {
+    //Block Cipher Modes of Operation
+    //Source: NIST Special Publication 800-38A
+    
+    public byte[] decryptECB(byte[] cipherText, AES_Key key) { //Electronic Cookbook mode
         setKey(key, cipherText.length/16 - 1);
         if (cipherText.length % 16 != 0) {
             throw new InvalidDataException();
@@ -300,54 +294,51 @@ public class AES_EnhancedInvCipher {
                 throw new InvalidDataException();
             }
         }
-        byte[] data = new byte[padded.length - paddingBytes];
-        System.arraycopy(padded, 0, data, 0, data.length);
-        return data;
+        byte[] plainText = new byte[padded.length - paddingBytes];
+        System.arraycopy(padded, 0, plainText, 0, plainText.length);
+        return plainText;
     }
     
-    public byte[] decryptCBC(byte[] cipherText, AES_Key key) {
+    public byte[] decryptCBC(byte[] cipherText, AES_Key key) { //Cipher Block Chaining mode
         setKey(key, cipherText.length/16 - 1);
         if (cipherText.length % 16 != 0) {
             throw new InvalidDataException();
         }
         ByteBuffer buffer = ByteBuffer.allocate(cipherText.length - 16);
-        byte[] iv = new byte[16];
-        byte[] block = new byte[16];
-        byte[] previousBlock = new byte[16];
+        byte[] iv = new byte[16]; //Initialization vector
+        byte[] cipherTextBlock = new byte[16];
+        byte[] previousCipherTextBlock = new byte[16];
+        byte[] xorBlock;
+        byte[] plainTextBlock = new byte[16];
         System.arraycopy(cipherText, 0, iv, 0, 16);
         for (int i = 16; i < cipherText.length; i += 16) {
             keyExpansion(blockKeys[i/16 - 1]);
             if (i == 16) {
-                System.arraycopy(cipherText, i, block, 0, 16);
-                block = invCipher(block);
+                System.arraycopy(cipherText, i, cipherTextBlock, 0, 16);
+                xorBlock = invCipher(cipherTextBlock);
                 for (int j = 0; j < 16; j++) {
-                    block[j] = (byte)(block[j] ^ iv[j]);
+                    plainTextBlock[j] = (byte)(xorBlock[j] ^ iv[j]);
                 }
             }
             else {
-                System.arraycopy(cipherText, i - 16, previousBlock, 0, 16);
-                System.arraycopy(cipherText, i, block, 0, 16);
-                block = invCipher(block);
+                System.arraycopy(cipherText, i - 16, previousCipherTextBlock, 0, 16);
+                System.arraycopy(cipherText, i, cipherTextBlock, 0, 16);
+                xorBlock = invCipher(cipherTextBlock);
                 for (int j = 0; j < 16; j++) {
-                    block[j] = (byte)(block[j] ^ previousBlock[j]);
+                    plainTextBlock[j] = (byte)(xorBlock[j] ^ previousCipherTextBlock[j]);
                 }
             }
-            buffer.put(block);
+            buffer.put(plainTextBlock);
         }
         byte[] padded = buffer.array();
         int paddingBytes = (int) padded[padded.length-1];
-        if (paddingBytes < 0 || paddingBytes > 16) {
-            throw new InvalidDataException();
-        }
-        else {
-            for (int i = padded.length - paddingBytes; i < padded.length; i++) {
-                if (padded[i] != paddingBytes) {
-                    throw new InvalidDataException();
-                }
+        for (int i = padded.length - paddingBytes; i < padded.length; i++) {
+            if (padded[i] != paddingBytes) {
+                throw new InvalidDataException();
             }
-            byte[] data = new byte[padded.length - paddingBytes];
-            System.arraycopy(padded, 0, data, 0, data.length);
-            return data;
         }
+        byte[] plainText = new byte[padded.length - paddingBytes];
+        System.arraycopy(padded, 0, plainText, 0, plainText.length);
+        return plainText;
     }
 }

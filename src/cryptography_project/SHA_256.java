@@ -1,5 +1,8 @@
 package cryptography_project;
 
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+
 /*
 Author: Joshua Insel
 
@@ -7,16 +10,13 @@ Secure Hash Algorithm-256 (SHA-256) in Java
 Source: FIPS PUB 180-4 (Secure Hash Standard)
 */
 
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-
 public class SHA_256 {
-    
-    private ArrayList<byte[]> data; //Input data and padded data
+    private byte[] data; //Input data and padded data
+    private byte[] padded; //Padded data
     private int blocks; //Number of 512-bit blocks in padded data
     private int m[][]; //Each padded data block represented as 32-bit integers 
-    private int w[] = new int[64]; //Message schedule
-    private int k[] = new int[64]; //32-bit pre-defined constants
+    private final int w[] = new int[64]; //Message schedule
+    private final int k[] = new int[64]; //32-bit pre-defined constants
     
     //The eight hash values
     private int h0; 
@@ -30,7 +30,6 @@ public class SHA_256 {
     
     
     public SHA_256() {  
-        data = new ArrayList<>();
         initConstants();
     }
     
@@ -112,49 +111,42 @@ public class SHA_256 {
         h7 = 0x5be0cd19;
     }
     
-    public void update(byte[] input) { //Adds input data to data array list
-        data.add(input);
-    }
     
     private void padding() { //Pads data
-        byte[] dataEnd = data.get(data.size()-1); //Last byte array in data array list
-        byte[] padded; //Padded data
         //Pads a single '1' bit and k '0' bits, where 1 + k + length (in bits) ≡ 448 (mod 512)
-        if (dataEnd.length % 64 < 56) {
-            padded = new byte[64*(dataEnd.length/64 + 1)];
-            System.arraycopy(dataEnd, 0, padded, 0, dataEnd.length);
-            padded[dataEnd.length] = (byte) 0b10000000;
+        if (data.length % 64 < 56) {
+            padded = Arrays.copyOf(data, 64*(data.length/64 + 1));
+            padded[data.length] = (byte) 0b10000000;
         }
         else {
-            padded = new byte[64*(dataEnd.length/64 + 2)];
-            System.arraycopy(dataEnd, 0, padded, 0, dataEnd.length);
-            padded[dataEnd.length] = (byte) 0b10000000;
+            padded = Arrays.copyOf(data, 64*(data.length/64 + 2));
+            padded[data.length] = (byte) 0b10000000;
         }
         //Pads a 64-bit binary representation of the length of the data in bits
-        long data_size = (dataEnd.length + ((data.size() - 1) * Integer.MAX_VALUE)) * 8; //Size of data in bits
+        long data_size = data.length * 8; //Size of data in bits;
         byte[] data_size_bytes = ByteBuffer.allocate(8).putLong(data_size).array(); //data_size as byte array
         System.arraycopy(data_size_bytes, 0, padded, padded.length - 8, data_size_bytes.length);
-        data.set(data.size() - 1, padded);
     }
     
-    private void parsing(int data_index) { //Converts each data block to 32-bit integers
-        blocks = data.get(data_index).length/64;
+    private void parsing() { //Converts each data block to 32-bit integers
+        blocks = padded.length/64;
         m = new int[blocks][16];
-        int index = 0;
         byte[] word = new byte[4]; //32-bit word
+        int word_index = 0;
         for (int i = 0; i < blocks; i++) {
             for (int j = 0; j < 16; j++) {
-                System.arraycopy(data.get(data_index), index, word, 0, 4);
+                System.arraycopy(padded, word_index, word, 0, 4);
                 m[i][j] = ByteBuffer.wrap(word).getInt();
-                index += 4;
+                word_index += 4;
             }
         }
     }
     
     public byte[] digest(byte[] input) { //Computes message digest
-        update(input);
+        data = input;
         initHashValues();
         padding();
+        parsing();
         
         //The eight working values
         int a;
@@ -170,55 +162,48 @@ public class SHA_256 {
         int t1;
         int t2;
         
-        //For each byte array in data
-        for (int dataIndex = 0; dataIndex < data.size(); dataIndex++) {
-            parsing(dataIndex);
-            for (int i = 0; i < blocks; i++) {
-                //Prepares message schedule
-                for (int t = 0; t < 64; t++) {
-                    if (t <= 15) {
-                        w[t] = m[i][t];
-                    }
-                    else {
-                        w[t] = l_sigma1(w[t-2]) + w[t-7] + l_sigma0(w[t-15]) + w[t-16];
-                    }
+        for (int i = 0; i < blocks; i++) {
+            //Prepares message schedule
+            for (int t = 0; t < 64; t++) {
+                if (t <= 15) {
+                    w[t] = m[i][t];
                 }
-                
-                //Initializes working variables
-                a = h0;
-                b = h1;
-                c = h2;
-                d = h3;
-                e = h4;
-                f = h5;
-                g = h6;
-                h = h7;
-
-                for (int t = 0; t < 64; t++) {
-                    t1 = h + sigma1(e) + ch(e, f, g) + k[t] + w[t];
-                    t2 = sigma0(a) + maj(a, b, c);
-                    h = g;
-                    g = f;
-                    f = e;
-                    e = d + t1;
-                    d = c;
-                    c = b;
-                    b = a;
-                    a = t1 + t2;
+                else {
+                    w[t] = l_sigma1(w[t-2]) + w[t-7] + l_sigma0(w[t-15]) + w[t-16];
                 }
-             
-                h0 += a;
-                h1 += b;
-                h2 += c;
-                h3 += d;
-                h4 += e;
-                h5 += f;
-                h6 += g;
-                h7 += h;
             }
+            //Initializes working variables
+            a = h0;
+            b = h1;
+            c = h2;
+            d = h3;
+            e = h4;
+            f = h5;
+            g = h6;
+            h = h7;
+
+            for (int t = 0; t < 64; t++) {
+                t1 = h + sigma1(e) + ch(e, f, g) + k[t] + w[t];
+                t2 = sigma0(a) + maj(a, b, c);
+                h = g;
+                g = f;
+                f = e;
+                e = d + t1;
+                d = c;
+                c = b;
+                b = a;
+                a = t1 + t2;
+            }
+             
+            h0 += a;
+            h1 += b;
+            h2 += c;
+            h3 += d;
+            h4 += e;
+            h5 += f;
+            h6 += g;
+            h7 += h;
         }
-        
-        data = new ArrayList<>(); //Clears data array list
         
         //Prepares message digest as a 256-bit byte array
         ByteBuffer buffer = ByteBuffer.allocate(32);

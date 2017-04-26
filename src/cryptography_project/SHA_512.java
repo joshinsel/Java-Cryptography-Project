@@ -1,5 +1,8 @@
 package cryptography_project;
 
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+
 /*
 Author: Joshua Insel
 
@@ -7,16 +10,14 @@ Secure Hash Algorithm-512 (SHA-512) in Java
 Source: FIPS PUB 180-4 (Secure Hash Standard)
 */
 
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-
 public class SHA_512 {
     
-    private ArrayList<byte[]> data; //Input data and padded data
+    private byte[] data; //Input data and padded data
+    private byte[] padded; //Padded data
     private int blocks; //Number of 1024-bit blocks in padded data
     private long m[][]; //Each padded data block represented as 64-bit integers
-    private long w[] = new long[80]; //Message schedule
-    private long k[] = new long[80]; //64-bit pre-defined constants
+    private final long w[] = new long[80]; //Message schedule
+    private final long k[] = new long[80]; //64-bit pre-defined constants
    
     //The eight hash values
     long h0;
@@ -29,7 +30,6 @@ public class SHA_512 {
     long h7;
     
     public SHA_512() {
-        data = new ArrayList<>();
         initConstants();
     }
     
@@ -127,49 +127,41 @@ public class SHA_512 {
         h7 = 0x5be0cd19137e2179L;
     }
     
-    public void update(byte[] input) { //Adds input data to data array list
-        data.add(input);
-    }
-    
     private void padding() { //Pads data
-        byte[] dataEnd = data.get(data.size()-1); //Last byte array in data array list
-        byte[] padded; //Padded data
         //Pads a single '1' bit and k '0' bits, where 1 + k + length (in bits) ≡ 896 (mod 512)
-        if (dataEnd.length % 128 < 112) {
-            padded = new byte[128*(dataEnd.length/128 + 1)];
-            System.arraycopy(dataEnd, 0, padded, 0, dataEnd.length);
-            padded[dataEnd.length] = (byte) 0b10000000;
+        if (data.length % 128 < 112) {
+            padded = Arrays.copyOf(data, 128*(data.length/128 + 1));
+            padded[data.length] = (byte) 0b10000000;
         }
         else {
-            padded = new byte[128*(dataEnd.length/128 + 2)];
-            System.arraycopy(dataEnd, 0, padded, 0, dataEnd.length);
-            padded[dataEnd.length] = (byte) 0b10000000;
+            padded = Arrays.copyOf(data, 128*(data.length/128 + 2));
+            padded[data.length] = (byte) 0b10000000;
         }
         //Pads a 128-bit binary representation of the length of the data in bits
-        long data_size = (dataEnd.length + ((data.size() - 1) * Integer.MAX_VALUE)) * 8; //Size of data in bits
+        long data_size = data.length * 8; //Size of data in bits
         byte[] data_size_bytes = ByteBuffer.allocate(8).putLong(data_size).array(); //data_size as byte array
         System.arraycopy(data_size_bytes, 0, padded, padded.length - 8, data_size_bytes.length);
-        data.set(data.size() - 1, padded);
     }
     
-    private void parsing(int data_index) { //Converts each data block to 64-bit integers
-        blocks = data.get(data_index).length/128;
+    private void parsing() { //Converts each data block to 32-bit integers
+        blocks = padded.length/128;
         m = new long[blocks][16];
-        int index = 0;
         byte[] word = new byte[8]; //64-bit word
+        int word_index = 0;
         for (int i = 0; i < blocks; i++) {
             for (int j = 0; j < 16; j++) {
-                System.arraycopy(data.get(data_index), index, word, 0, 8);
+                System.arraycopy(padded, word_index, word, 0, 8);
                 m[i][j] = ByteBuffer.wrap(word).getLong();
-                index += 8;
+                word_index += 8;
             }
         }
     }
     
     public byte[] digest(byte[] input) { //Computes message digest
-        update(input);
+        data = input;
         initHashValues();
         padding();
+        parsing();
         
         //The eight working variables
         long a;
@@ -185,56 +177,49 @@ public class SHA_512 {
         long t1;
         long t2;
         
-        //For each byte array in data
-        for (int dataIndex = 0; dataIndex < data.size(); dataIndex++) {
-            parsing(dataIndex);
-            for (int i = 0; i < blocks; i++) {
-                //Prepares message schedule
-                for (int t = 0; t < 80; t++) {
-                    if (t <= 15) {
-                        w[t] = m[i][t];
-                    }
-                    else {
-                        w[t] = l_sigma1(w[t-2]) + w[t-7] + l_sigma0(w[t-15]) + w[t-16];
-                    }
+        for (int i = 0; i < blocks; i++) {
+            //Prepares message schedule
+            for (int t = 0; t < 80; t++) {
+                if (t <= 15) {
+                    w[t] = m[i][t];
+                } else {
+                    w[t] = l_sigma1(w[t - 2]) + w[t - 7] + l_sigma0(w[t - 15]) + w[t - 16];
                 }
-                
-                //Initialize working variables
-                a = h0;
-                b = h1;
-                c = h2;
-                d = h3;
-                e = h4;
-                f = h5;
-                g = h6;
-                h = h7;
-
-                for (int t = 0; t < 80; t++) {
-                    t1 = h + sigma1(e) + ch(e, f, g) + k[t] + w[t];
-                    t2 = sigma0(a) + maj(a, b, c);
-                    h = g;
-                    g = f;
-                    f = e;
-                    e = d + t1;
-                    d = c;
-                    c = b;
-                    b = a;
-                    a = t1 + t2;
-                }
-                
-                //Final hash values for block
-                h0 += a;
-                h1 += b;
-                h2 += c;
-                h3 += d;
-                h4 += e;
-                h5 += f;
-                h6 += g;
-                h7 += h;
             }
+
+            //Initialize working variables
+            a = h0;
+            b = h1;
+            c = h2;
+            d = h3;
+            e = h4;
+            f = h5;
+            g = h6;
+            h = h7;
+
+            for (int t = 0; t < 80; t++) {
+                t1 = h + sigma1(e) + ch(e, f, g) + k[t] + w[t];
+                t2 = sigma0(a) + maj(a, b, c);
+                h = g;
+                g = f;
+                f = e;
+                e = d + t1;
+                d = c;
+                c = b;
+                b = a;
+                a = t1 + t2;
+            }
+
+            //Final hash values for block
+            h0 += a;
+            h1 += b;
+            h2 += c;
+            h3 += d;
+            h4 += e;
+            h5 += f;
+            h6 += g;
+            h7 += h;
         }
-        
-        data = new ArrayList<>(); //Clears data array list
         
         //Prepares message digest as a single 512-bit byte array
         ByteBuffer buffer = ByteBuffer.allocate(64);
