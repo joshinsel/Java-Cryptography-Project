@@ -276,14 +276,14 @@ public class AES_EnhancedInvCipher {
     //Source: NIST Special Publication 800-38A
     
     public byte[] decryptECB(byte[] cipherText, AES_Key key) { //Electronic Cookbook mode
-        setKey(key, cipherText.length/16 - 1);
+        setKey(key, cipherText.length/16);
         if (cipherText.length % 16 != 0) {
             throw new InvalidDataException();
         }
         ByteBuffer buffer = ByteBuffer.allocate(cipherText.length);
         byte[] block = new byte[16];
         for (int i = 0; i < cipherText.length; i += 16) {
-            keyExpansion(blockKeys[i/16 - 1]);
+            keyExpansion(blockKeys[i/16]);
             System.arraycopy(cipherText, i, block, 0, 16);
             buffer.put(invCipher(block));
         }
