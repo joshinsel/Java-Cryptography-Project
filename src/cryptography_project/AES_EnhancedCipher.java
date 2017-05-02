@@ -420,7 +420,7 @@ public class AES_EnhancedCipher {
         byte[] iv = new byte[16]; //Initialization vector
         random.nextBytes(iv);
         buffer.put(iv);
-        byte[] output;
+        byte[] output = null;
         byte[] cipherTextBlock = new byte[16];
         byte[] plainTextBlock = new byte[16];
         for (int i = 0; i < plainText.length; i += 16) {
@@ -429,7 +429,7 @@ public class AES_EnhancedCipher {
                 output = cipher(iv);
             }
             else {
-                output = cipher(cipherTextBlock);
+                output = cipher(output);
             }
             if (plainText.length - i < 16) {
                 int blockLength = plainText.length % 16;
@@ -457,7 +457,7 @@ public class AES_EnhancedCipher {
         setKey(key, cipherText.length/16);
         ByteBuffer buffer = ByteBuffer.allocate(cipherText.length - 16);
         byte[] iv = new byte[16]; //Initialization vector
-        byte[] output;
+        byte[] output = null;
         byte[] cipherTextBlock = new byte[16];
         byte[] plainTextBlock = new byte[16];
         System.arraycopy(cipherText, 0, iv, 0, 16);
@@ -467,7 +467,7 @@ public class AES_EnhancedCipher {
                 output = cipher(iv);
             }
             else {
-                output = cipher(cipherTextBlock);
+                output = cipher(output);
             }
             if (cipherText.length - i < 16) {
                 int blockLength = cipherText.length % 16;
